@@ -144,12 +144,14 @@ Klíčové operace:
 - `get_brands()` — Vrátí seřazený seznam sledovaných značek
 - `get_visibility_history()` — Agregovaný časový dotaz pro kartu History
 
-### n8n — Automatizační vrstva (na vysoké úrovni)
+### n8n — Automatizační vrstva
 
 Instance n8n běžící na VPS přijímá webhook volání ze Streamlitu a orchestruje dvě sekvenční volání Gemini API:
 
 1. **Generování odpovědi** — Pošle LLM uživatelský dotaz a získá přirozenou, nestrannou odpověď
 2. **Analýza odpovědi** — Předá tuto odpověď druhému LLM volání pro extrakci strukturovaného JSON: `is_visible`, `sentiment`, `context`, `competitors`
+<img width="810" height="276" alt="image" src="https://github.com/user-attachments/assets/31915de2-8413-4d07-8519-807de8bf963d" />
+
 
 Zpracovaný výsledek se vrátí synchronně do Streamlitu jako jeden JSON payload.
 
