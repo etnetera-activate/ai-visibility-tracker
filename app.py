@@ -84,6 +84,10 @@ if "results" not in st.session_state:
     st.session_state.results = []
 if "selected_index" not in st.session_state:
     st.session_state.selected_index = None
+if "show_success_banner" not in st.session_state:
+    st.session_state.show_success_banner = False
+if "last_run_was_save" not in st.session_state:
+    st.session_state.last_run_was_save = False
 
 # ── Sidebar — Brand Setup ─────────────────────────────────────────────────────
 with st.sidebar:
@@ -212,6 +216,17 @@ tab_new, tab_dashboard, tab_history = st.tabs(["➕ New Query", "📊 Dashboard"
 # TAB 1 — New Query
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab_new:
+    if st.session_state.show_success_banner:
+        if st.session_state.last_run_was_save:
+            banner_msg = "✅ Analysis complete and saved to BigQuery! Head to the **📊 Dashboard** tab to see your results or **📈 History** tab for trends."
+        else:
+            banner_msg = "✅ Test run complete! Head to the **📊 Dashboard** tab to see your results. (Results were not saved to BigQuery.)"
+        st.success(banner_msg)
+        if st.button("✕ Dismiss", key="dismiss_banner"):
+            st.session_state.show_success_banner = False
+            st.rerun()
+        st.markdown("")
+
     prompt_type = st.selectbox(
         "Prompt type",
         ["Informational", "Commercial", "Competitor", "Navigational"],
@@ -237,10 +252,12 @@ with tab_new:
             st.error("Please add a valid Gemini API Key to your config.json.")
             st.stop()
 
+        st.session_state.show_success_banner = False  # reset before new run
         with st.spinner("Analyzing LLM response…"):
             ok = run_query(brand, prompt, prompt_type, brand_url, brand_description, save_to_bq=run_save)
             if ok:
-                st.success("✅ Analysis complete — check the Dashboard tab.")
+                st.session_state.show_success_banner = True
+                st.session_state.last_run_was_save = run_save
                 st.rerun()
 
 # ═══════════════════════════════════════════════════════════════════════════════
