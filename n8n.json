@@ -1,0 +1,128 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "analyze-brand",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "36256538-13b2-4945-8004-3e4b75978cd8",
+      "name": "Streamlit Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        2432,
+        624
+      ],
+      "webhookId": "analyze-brand"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemma-3-4b-it:generateContent?key={{$json.body.api_key}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"Answer the following question in 2-3 sentences (max 300 characters). Be factual and mention specific brands or companies where relevant. Do not elaborate.\\n\\nQuestion:\" + $json.body.prompt\n        }\n      ]\n    }\n  ]\n} }}",
+        "options": {}
+      },
+      "id": "33620c12-9180-4e1f-be6a-438c6983d579",
+      "name": "1. Generate Unbiased Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2656,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemma-3-4b-it:generateContent?key={{ $('Streamlit Webhook').item.json.body.api_key }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"Brand: \" + $('Streamlit Webhook').item.json.body.brand + ($('Streamlit Webhook').item.json.body.brand_description ? \" (\" + $('Streamlit Webhook').item.json.body.brand_description + \")\" : \"\") + \".\\nIs this brand mentioned in the text below? Output ONLY a JSON object, no other text.\\n\\nText: \" + $json.candidates[0].content.parts[0].text + \"\\n\\nJSON: {\\\"is_visible\\\": true or false, \\\"sentiment\\\": \\\"POSITIVE\\\" or \\\"NEUTRAL\\\" or \\\"NEGATIVE\\\" or \\\"NONE\\\", \\\"context\\\": \\\"one sentence\\\", \\\"competitors\\\": [\\\"other brands mentioned\\\"]}\\nIf brand not mentioned: is_visible=false, sentiment=\\\"NONE\\\".\"\n        }\n      ]\n    }\n  ]\n} }}",
+        "options": {}
+      },
+      "id": "5f80be06-9d77-47ea-8a4f-78924ae3ccc0",
+      "name": "2. Analyze Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2880,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get the target brand from Webhook\nconst targetBrand = $('Streamlit Webhook').item.json.body.brand;\n\n// 2. Get the original UNBIASED text response from the first LLM node\nconst unbiasedBotResponse = $('1. Generate Unbiased Response').item.json.candidates[0].content.parts[0].text;\n\n// 3. Get the raw text response from the Analyzer LLM\nconst rawLlmText = $input.first().json.candidates[0].content.parts[0].text;\n\n// 4. Strip out markdown code blocks\nconst cleanJsonText = rawLlmText.replace(/```json/gi, '').replace(/```/g, '').trim();\n\n// 5. Safely parse the JSON\nlet visibilityData = {};\ntry {\n  visibilityData = JSON.parse(cleanJsonText);\n} catch (error) {\n  visibilityData = {\n    is_visible: false,\n    sentiment: \"UNKNOWN\",\n    context: \"Parse error — raw output: \" + rawLlmText.substring(0, 120),\n    competitors: [],\n    parse_error: true\n  };\n}\n\n// 6. Return structured data to Streamlit, including the actual unbiased response\nreturn {\n  brand_analyzed: targetBrand,\n  metrics: visibilityData,\n  unbiased_bot_response: unbiasedBotResponse\n};"
+      },
+      "id": "eb245fdc-b9a8-41fa-8997-47270fb31a3a",
+      "name": "Clean & Parse Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3104,
+        624
+      ]
+    }
+  ],
+  "connections": {
+    "Streamlit Webhook": {
+      "main": [
+        [
+          {
+            "node": "1. Generate Unbiased Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Generate Unbiased Response": {
+      "main": [
+        [
+          {
+            "node": "2. Analyze Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Analyze Response": {
+      "main": [
+        [
+          {
+            "node": "Clean & Parse Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1218b1a7f86e2f2414680cf7a4061c96cadb0622926fd11c20fb31e29c015e48"
+  }
+}
